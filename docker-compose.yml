@@ -1,0 +1,139 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════
+#  LOCAL DEV: dùng local PostgreSQL (không cần Supabase)
+#  PRODUCTION: set DATABASE_URL = Supabase connection string
+# ══════════════════════════════════════════════════════════
+
+services:
+  # ── Local PostgreSQL (chỉ dùng khi KHÔNG dùng Supabase) ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: codepulse-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    profiles: ["local"] # chỉ chạy khi: docker compose --profile local up
+
+  # ── UserService ─────────────────────────────────────────
+  user-service:
+    container_name: codepulse-user-service
+    build:
+      context: .
+      dockerfile: src/CodePulse.UserService/Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      # LOCAL: kết nối local postgres
+      DATABASE_URL: ${USER_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_users;Username=postgres;Password=postgres}
+      # SUPABASE: set USER_SERVICE_DATABASE_URL trong .env
+      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ── PostService ─────────────────────────────────────────
+  post-service:
+    container_name: codepulse-post-service
+    build:
+      context: .
+      dockerfile: src/CodePulse.PostService/Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      DATABASE_URL: ${POST_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_posts;Username=postgres;Password=postgres}
+      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ── ProductService (Catalog & Product) ───────────────
+  product-service:
+    container_name: codepulse-product-service
+    build:
+      context: .
+      dockerfile: src/CodePulse.ProductService/Dockerfile
+    ports:
+      - "5003:5003"
+    environment:
+      DATABASE_URL: ${PRODUCT_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_products;Username=postgres;Password=postgres}
+      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ── CartService ──────────────────────────────────────────
+  cart-service:
+    container_name: codepulse-cart-service
+    build:
+      context: .
+      dockerfile: src/CodePulse.CartService/Dockerfile
+    ports:
+      - "5004:5004"
+    environment:
+      DATABASE_URL: ${CART_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_carts;Username=postgres;Password=postgres}
+      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ── OrderService ─────────────────────────────────────────
+  order-service:
+    container_name: codepulse-order-service
+    build:
+      context: .
+      dockerfile: src/CodePulse.OrderService/Dockerfile
+    ports:
+      - "5005:5005"
+    environment:
+      DATABASE_URL: ${ORDER_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_orders;Username=postgres;Password=postgres}
+      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ── API Gateway ─────────────────────────────────────────
+  api-gateway:
+    container_name: codepulse-api-gateway
+    build:
+      context: .
+      dockerfile: src/CodePulse.ApiGateway/Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+    depends_on:
+      - user-service
+      - post-service
+      - product-service
+      - cart-service
+      - order-service
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
