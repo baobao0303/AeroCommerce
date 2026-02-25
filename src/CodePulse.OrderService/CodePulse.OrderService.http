@@ -1,0 +1,6 @@
+@CodePulse.OrderService_HostAddress = http://localhost:5081
+
+GET {{CodePulse.OrderService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
