@@ -1,0 +1,193 @@
+---
+name: Authentication Architecture MDC
+description: System design and strict technical guidelines for implementing the global Authentication Flow in CodePulse Microservices and Frontend (SSR + MFE).
+category: architecture, security, auth
+---
+
+# CodePulse Authentication System (MDC)
+
+Tài liệu này (MDC) quy định chuẩn Mulesoft/Micro-frontend & Microservices Architecture cho module xác thực của dự án CodePulse. Toàn bộ team tuân thủ nghiêm ngặt nguyên tắc: **Security first, Separation of Concerns, SSR & MFE compatibility.**
+
+## 1. 🧩 Module Breakdown
+
+### 🔹 Auth Module (Backend: UserService | Frontend: Shell App)
+- `Register`: Đăng ký tài khoản (First Name, Last Name, Email, Phone, Password).
+- `Verify OTP`: Xác thực OTP gửi qua SMS/Email. Phải verify số điện thoại thành công mới cho đăng ký.
+- `Login`: Xác thực bằng (Email HOẶC Phone) + Password, trả về HttpOnly Cookie chứa tokens.
+- `Logout`: Vô hiệu hóa session, xóa Cookie trên client.
+- `Refresh Token`: Tự động nối dài session khi Access Token hết hạn, không gián đoạn UX.
+- `Validate Session`: Kiểm tra trạng thái đăng nhập phía SSR (Next.js server-side).
+- `Forgot/Reset Password`: Cấp lại mật khẩu qua mã OTP (gửi về Email hoặc Phone).
+
+### 🔹 User Module (Backend: UserService)
+- `Get Profile`: Trả về meta-data của current user.
+- `Update Info`: Cập nhật thông tin.
+- `Role/Permission`: Gắn Claims vào Token để API Gateway và các Microservice khác chặn quyền.
+
+### 🔹 Session Module (Frontend/BFF)
+- `Storage Strategy`: Token **tuyệt đối không nằm ở localStorage**.
+- `Sync Session`: Quản lý log out chéo qua các MFE và các tab (BroadcastChannel / session state).
+
+---
+
+## 2. 🔄 Flow Design
+
+### 1. Registration & Phone Verification Flow
+```mermaid
+sequenceDiagram
+    participant UI as MFE Shell UI
+    participant Auth as UserService (.NET)
+    participant SMS as SMS/Email Provider
+    
+    UI->>Auth: 1. Gửi thông tin (Name, Email, Phone, Pass, Confirm Pass)
+    Auth->>Auth: 2. Validate dữ liệu & Lưu User dạng "Pending/Unverified"
+    Auth->>SMS: 3. Generate OTP & Yêu cầu gửi SMS/Email
+    SMS->>UI: 4. Nhận mã OTP qua điện thoại
+    UI->>Auth: 5. Nhập OTP & Submit /api/auth/verify-otp
+    Auth->>Auth: 6. Check OTP hợp lệ -> Set PhoneNumberVerified = true
+    Auth->>UI: 7. Xác nhận Đăng ký thành công
+```
+
+### 2. Login Flow (Bằng Email hoặc Số điện thoại)
+```mermaid
+sequenceDiagram
+    participant UI as MFE Shell UI
+    participant BFF as Next.js API/BFF
+    participant Auth as UserService (.NET)
+    
+    UI->>BFF: 1. Gửi (Email hoặc Phone) & Password
+    BFF->>Auth: 2. Proxy request /api/auth/login
+    Auth->>Auth: 3. Kiểm tra (Email OR Phone) & Verify BCrypt Hash
+    Auth->>BFF: 4. Trả về Access Token + Refresh Token
+    BFF->>UI: 5. Set-Cookie: 
+               AccessToken (HttpOnly, Secure, SameSite) 
+               RefreshToken (HttpOnly, Secure)
+               & Return Role/User Meta
+```
+
+### 3. Forgot Password Flow
+```mermaid
+sequenceDiagram
+    participant UI as MFE Shell UI
+    participant Auth as UserService (.NET)
+    participant SMS as SMS/Email Provider
+    
+    UI->>Auth: 1. Yêu cầu reset pass (Gửi Email hoặc Phone)
+    Auth->>SMS: 2. Generate OTP & Gửi mã cho user
+    SMS->>UI: 3. User nhận mã OTP
+    UI->>Auth: 4. Submit OTP + Password Mới
+    Auth->>Auth: 5. Validate OTP -> Update PasswordHash mới
+    Auth->>UI: 6. Đổi mật khẩu thành công
+```
+
+### Authenticated Request Flow (Sau login)
+```mermaid
+sequenceDiagram
+    participant MFE as Micro-Frontend
+    participant GW as ApiGateway (.NET)
+    participant Post as PostService (.NET)
+    
+    MFE->>GW: 1. Gọi /api/posts (Trình duyệt tự đính kèm Cookie)
+    GW->>GW: 2. [Middleware] Trích xuất JWT từ Cookie / Header
+    GW->>GW: 3. Validate Token Signature & Expiry
+    GW->>Post: 4. Forward request (kèm UserId trong header)
+    Post->>Post: 5. Authorize/Do Logic
+    Post->>MFE: 6. Response Data
+```
+
+---
+
+## 3. 🧠 Responsibility (Ranh Giới Kiến Trúc)
+
+| Layer | Responsibility | Strict Rule |
+|-------|---------------|-------------|
+| **UI (React/MFE)** | Chỉ render màn hình, dispatch events. Gọi API của nội bộ frontend (BFF). | KHÔNG parse JWT, KHÔNG lưu token logic phức tạp. |
+| **Shell App (FE)** | Lưu trữ Global Auth AuthContext, điều phối sự kiện đổi tab. | Các Sub-MFE chỉ dùng Context, không tự gọi Login API độc lập. |
+| **BFF (Next.js SSR)**| Nhận token từ Backend, gói bảo mật lại thành HttpOnly Cookie gửi về Browser cho cả Server Actions lẫn API Routes. | Xử lý Refresh Token logic, giấu JWT thật khỏi Frontend JavaScript. |
+| **ApiGateway (YARP)**| Lấy token từ Cookie do trình duyệt gửi, Validate chữ ký JWT, cản request bẩn. | Dịch User JWT ra `X-User-ID` để các Service sau dễ đọc. |
+| **AuthService (.NET)** | Nơi duy nhất kết nối Supabase xử lý mật khẩu. Băm (Hash), đối chiếu, sinh JWT & Refresh Token rác. | Issue JWT, KHÔNG hứng cookie. |
+
+---
+
+## 4. 🏗 MFE + SSR Specific Rules
+
+✅ **Đúng:**
+- Micro-Frontend (MFE) "Shell/Host" là thằng duy nhất quản lý state đăng nhập (Zustand/Context). 
+- Các Sub-MFE (Remote) chỉ cắm vào và mượn state để thao tác.
+- Next.js SSR đọc HttpOnly cookie trong hàm `getServerSideProps` / Server Components để check Auth cực nhanh tại Server mà không nháy giao diện.
+
+❌ **Sai:**
+- Lưu thẳng Access Token / Refresh Token vào `localStorage` -> Nguy cơ XSS tấn công đánh cắp token trắng trợn.
+- Trả về Token và để React tự gắn vào Headers bằng Axios Interceptors -> Cách này lạc hậu, không SSR được, và dễ lộ token. Thay vào đó, ủy thác cho Trình duyệt tự nhúng qua cơ chế `credentials: 'include'`.
+
+---
+
+## 5. 🧱 Data Model (Chi tiết Schema)
+
+Việc thiết kế Database cho Authentication cần đảm bảo đủ field phục vụ bảo mật và mở rộng MFE. Dưới đây là thiết kế chi tiết:
+
+### 1. Bảng `Users` (Supabase Postgres)
+Bảng này lưu trữ thông tin định danh (Credential) và phân quyền cơ bản.
+- `Id` (UUID) - *Primary Key*
+- `FirstName` (Varchar/String) - Bắt buộc, Tên người dùng.
+- `LastName` (Varchar/String) - Bắt buộc, Họ người dùng.
+- `Email` (Varchar/String) - *Unique*, dùng để đăng nhập / liên hệ.
+- `PhoneNumber` (Varchar/String) - *Unique*, dùng để gửi OTP và đăng nhập.
+- `PhoneNumberVerified` (Boolean) - *Default = false*. Phải verify số ĐT (hoặc email) thành công thì mới tính là user hợp lệ.
+- `PasswordHash` (Varchar/String) - *Bắt buộc*, băm bằng thuật toán BCrypt.
+- `Role` (Varchar) - *Default là 'User'*. (Có thể là: Admin, User, Manager).
+- `IsActive` (Boolean) - *Default = true*. Dùng để khóa tài khoản khi cần (Soft delete / Ban user).
+- `CreatedAt` (Timestamp) - *Tự động sinh khi tạo*.
+- `UpdatedAt` (Timestamp) - *Cập nhật khi sửa thông tin*.
+
+### 2. Bảng `Otps` (Supabase Postgres hoặc Redis)
+Bảng này lưu trữ mã OTP phục vụ cho việc verify số điện thoại hoặc Quên mật khẩu.
+- `Id` (UUID) - *Primary Key*
+- `Receiver` (Varchar) - Lưu số điện thoại hoặc Email nhận mã OTP.
+- `Code` (Varchar) - Mã OTP (VD: 6 chữ số ngẫu nhiên).
+- `Type` (Varchar) - Phân loại OTP: `Register`, `ForgotPassword`.
+- `IsUsed` (Boolean) - *Default = false*. Đánh dấu mã này đã được dùng hay chưa (chống replay attack).
+- `ExpiresAt` (Timestamp) - Hết hạn (Thường 3-5 phút sau khi tạo).
+- `CreatedAt` (Timestamp)
+
+### 3. Bảng `RefreshTokens` (Supabase Postgres hoặc Redis)
+Bảng này dùng để lưu trữ danh sách Refresh Tokens đang còn hiệu lực nhằm mục đích xoay vòng token (Token Rotation) và cho phép cưỡng chế Logout (Revoke).
+- `Id` (UUID) - *Primary Key*
+- `Token` (Varchar) - Chuỗi random an toàn (VD: sinh bằng `RandomNumberGenerator`).
+- `UserId` (UUID) - *Foreign Key*, trỏ về bảng `Users`.
+- `JwtId` (Varchar) - *Optional*, mã `jti` của Access Token đi kèm để track cặp token.
+- `IsUsed` (Boolean) - *Default = false*. Đảm bảo mỗi Refresh Token chỉ dùng 1 lần (Chống Replay Attack).
+- `IsRevoked` (Boolean) - *Default = false*. Bật lên `true` khi user gọi API `/logout` hoặc bị Admin kích ra.
+- `CreatedAt` (Timestamp) - Thời điểm cấp.
+- `ExpiresAt` (Timestamp) - Thời gian hết hạn (VD: 7 ngày hoặc 30 ngày sau `CreatedAt`).
+
+> **💡 Rule:** Khi user đổi Mật khẩu, toàn bộ `RefreshTokens` của `UserId` đó phải được set `IsRevoked = true` để đá văng mọi phiên đăng nhập cũ trên mọi trình duyệt.
+
+---
+
+## 6. 🛡️ Strict Validation Rules (Hard Requirements)
+Hệ thống bắt buộc (Hard Require) phải thực hiện Validate dữ liệu nghiêm ngặt ở **CẢ Frontend lẫn Backend (DTO/FluentValidation)** trước khi xử lý bất kỳ logic nào:
+
+1. **Password (Mật khẩu):**
+   - Không được để trống. Độ dài tối thiểu 8 ký tự.
+   - Bắt buộc phải chứa ít nhất: 1 chữ cái in hoa, 1 chữ cái in thường, 1 chữ số và 1 ký tự đặc biệt (VD: `@$!%*?&`).
+2. **Confirm Password:**
+   - Bắt buộc phải khớp 100% với giá trị của `Password`. Nếu sai, quăng lỗi validation ngay lập tức.
+3. **Email:**
+   - Phải tuân thủ chuẩn định dạng quốc tế của một Email hợp lệ (Regex).
+4. **Phone Number (Số điện thoại):**
+   - Chỉ được chứa số.
+   - Theo định dạng hợp lệ (VD: độ dài 10 số của Việt Nam, bắt đầu bằng `0` hoặc `+84`).
+5. **Name (First Name / Last Name):**
+   - Bắt buộc có dữ liệu, không được chứa chuỗi script (chống XSS) hoặc các ký tự đặc biệt không hợp lệ.
+
+---
+
+## 7. ⚠️ Checklist Lỗi Nghiêm Trọng Cần Tránh (Do Not)
+1. ❌ **Không phân chia Access & Refresh:** Cấp một Access Token sống tới 1 tháng là tự sát. Access Token sống tối đa 15-30 phút. Refresh Token sống dài hơn (VD: 30 ngày).
+2. ❌ **Không áp dụng CSRF:** Vì dùng HttpOnly, phải thiết lập SameSite Policy (Lax/Strict) kĩ càng, kết hợp CSRF tokens nếu có Mutations bằng Form.
+3. ❌ **Bỏ rơi SSR Auth:** Render nội dung private trước ở client rồi giật giật đẩy đi đăng nhập lúc mounting -> Phải kiểm tra cookie ngay tại Node (Edge) Backend For Frontend của Next.
+
+---
+
+> Viết bởi System Architect. Team bắt buộc đọc kĩ file `auth.mdc` này trước khi code API Controller User hoặc thiết lập API Route trong Next.js.
