@@ -1,0 +1,179 @@
+---
+description: Repository Pattern rules for CodePulse .NET Microservices
+globs: ["src/**/*.cs"]
+alwaysApply: true
+---
+
+# Repository Pattern — CodePulse Microservices
+
+## Kiến trúc bắt buộc
+
+```
+Controller ──▶ Repository ──▶ Database
+                   ▲
+               DbContext (inject vào Repository)
+```
+
+Mọi thao tác với database **phải đi qua Repository**, KHÔNG được gọi DbContext trực tiếp từ Controller hay Service.
+
+## Quy tắc bắt buộc
+
+### 1. Interface định nghĩa trong Domain layer
+
+```csharp
+// ✅ ĐÚNG — src/CodePulse.UserService/Domain/Interfaces/IUserRepository.cs
+namespace CodePulse.UserService.Domain.Interfaces;
+
+public interface IUserRepository
+{
+    Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<User?> GetByEmailAsync(string email, CancellationToken ct = default);
+    Task<bool> EmailExistsAsync(string email, CancellationToken ct = default);
+    Task AddAsync(User user, CancellationToken ct = default);
+    Task SaveChangesAsync(CancellationToken ct = default);
+}
+```
+
+```csharp
+// ❌ SAI — KHÔNG được để interface trong Infrastructure hay Data layer
+namespace CodePulse.UserService.Data; // ← SAI VỊ TRÍ
+public interface IUserRepository { }
+```
+
+### 2. Implementation trong Infrastructure/Data layer
+
+```csharp
+// ✅ ĐÚNG — src/CodePulse.UserService/Data/Repositories/UserRepository.cs
+using CodePulse.UserService.Domain.Entities;
+using CodePulse.UserService.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
+
+namespace CodePulse.UserService.Data.Repositories;
+
+public class UserRepository : IUserRepository
+{
+    private readonly UserDbContext _db;
+
+    // DbContext inject vào Repository (KHÔNG inject vào Controller)
+    public UserRepository(UserDbContext db) => _db = db;
+
+    public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => await _db.Users.FindAsync([id], ct);
+
+    public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
+        => await _db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLowerInvariant(), ct);
+
+    public async Task<bool> EmailExistsAsync(string email, CancellationToken ct = default)
+        => await _db.Users.AnyAsync(u => u.Email == email.ToLowerInvariant(), ct);
+
+    public async Task AddAsync(User user, CancellationToken ct = default)
+        => await _db.Users.AddAsync(user, ct);
+
+    public async Task SaveChangesAsync(CancellationToken ct = default)
+        => await _db.SaveChangesAsync(ct);
+}
+```
+
+### 3. Service dùng Repository (KHÔNG dùng DbContext)
+
+```csharp
+// ✅ ĐÚNG
+public class AuthService : IAuthService
+{
+    private readonly IUserRepository _userRepo; // inject interface
+
+    public AuthService(IUserRepository userRepo) => _userRepo = userRepo;
+
+    public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
+    {
+        if (await _userRepo.EmailExistsAsync(request.Email))
+            throw new UserAlreadyExistsException("email", request.Email);
+
+        var user = User.Create(request.Username, request.Email,
+                               BCrypt.Net.BCrypt.HashPassword(request.Password));
+        await _userRepo.AddAsync(user);
+        await _userRepo.SaveChangesAsync();
+        return GenerateAuthResponse(user);
+    }
+}
+```
+
+```csharp
+// ❌ SAI — KHÔNG inject DbContext vào Service
+public class AuthService
+{
+    private readonly UserDbContext _db; // ← VI PHẠM REPOSITORY PATTERN
+}
+```
+
+### 4. Đăng ký DI trong Program.cs
+
+```csharp
+// ✅ ĐÚNG — luôn đăng ký interface → implementation
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IPostRepository, PostRepository>();
+
+// ❌ SAI — KHÔNG đăng ký concrete class trực tiếp
+builder.Services.AddScoped<UserRepository>(); // ← mất tính Decoupling
+```
+
+## Cấu trúc thư mục chuẩn
+
+```
+src/CodePulse.UserService/
+├── Domain/
+│   ├── Entities/
+│   │   └── User.cs                    ← Entity (private setters + factory)
+│   ├── Interfaces/
+│   │   └── IUserRepository.cs         ← Repository contract (định nghĩa ở đây)
+│   └── Exceptions/
+│       └── UserExceptions.cs
+├── Data/
+│   ├── ApplicationDbContext.cs        ← Base DbContext (audit timestamps)
+│   ├── UserDbContext.cs               ← DbSet definitions
+│   ├── Repositories/
+│   │   └── UserRepository.cs          ← EF Core implementation
+│   └── StoredProcedures/
+│       └── UserStoredProcedures.cs    ← Complex query wrappers
+├── Services/
+│   └── AuthService.cs                 ← Business logic (dùng IUserRepository)
+└── Controllers/
+    └── AuthController.cs              ← HTTP layer (dùng IAuthService)
+```
+
+## Benefits của Repository Pattern
+
+| Lợi ích | Giải thích |
+|---------|------------|
+| **Decoupling** | Service không biết đến EF Core, chỉ biết Interface |
+| **Consistency** | Mọi query đều đi qua 1 chỗ, dễ audit |
+| **Performance** | Tập trung caching, query optimization tại Repository |
+| **Multiple data sources** | Đổi từ PostgreSQL → MongoDB chỉ cần viết lại Repository |
+| **Testability** | Mock `IUserRepository` dễ dàng trong Unit Tests |
+
+## Unit Test với Repository Mock
+
+```csharp
+// ✅ Dễ test vì Service phụ thuộc vào Interface
+[Fact]
+public async Task RegisterAsync_DuplicateEmail_Throws()
+{
+    var mockRepo = new Mock<IUserRepository>();
+    mockRepo.Setup(r => r.EmailExistsAsync("test@mail.com", default))
+            .ReturnsAsync(true); // giả lập email đã tồn tại
+
+    var service = new AuthService(mockRepo.Object, mockConfig);
+
+    await Assert.ThrowsAsync<UserAlreadyExistsException>(
+        () => service.RegisterAsync(new RegisterRequest("user", "test@mail.com", "pass")));
+}
+```
+
+## Checklist khi tạo Repository mới
+
+- [ ] Interface nằm trong `Domain/Interfaces/`
+- [ ] Implementation nằm trong `Data/Repositories/`
+- [ ] Chỉ dùng `CancellationToken` cho mọi async method
+- [ ] Đăng ký `AddScoped<IRepo, RepoImpl>()` trong `Program.cs`
+- [ ] Service inject Interface, KHÔNG inject DbContext
+- [ ] Controller KHÔNG biết đến Repository hay DbContext

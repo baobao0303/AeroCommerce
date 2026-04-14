@@ -1,0 +1,158 @@
+---
+description: CodePulse Category & Product System Architecture
+globs: ["src/CodePulse.ProductService/**/*.cs", "src/CodePulse.CatalogService/**/*.cs", "src/CodePulse.Shared/**/*.cs"]
+---
+
+# Kiến trúc Hệ thống Sản phẩm & Danh mục Sản phẩm (Product & Category Architecture)
+
+Tài liệu này vạch ra kế hoạch triển khai toàn diện tính năng **Sản phẩm (Product)** kết hợp với hệ thống **Danh mục (Category)** dành cho thiết kế Microservices.
+
+## 1. Vị trí trong Hệ sinh thái Microservices
+- **Vị trí đề xuất:** Cả 2 thực thể này nên nằm chung trong một microservice, gọi là `CodePulse.ProductService` (hoặc đổi tên PostService thành ProductService). Việc giữ chúng trong cùng một DB/Service giúp dễ dàng triển khai Entity Framework truy vấn `Include(p => p.Categories)` mà không lo chi phí Join qua mạng.
+
+---
+
+## 2. Thiết kế Cơ sở Dữ liệu (Database Schema)
+
+Kiến trúc áp dụng sẽ là **Many-to-Many**, giúp một Sản phẩm có thể thuộc nhiều Danh mục khác nhau (VD: Sản phẩm "MacBook" vừa có thể nằm ở Danh mục "Laptop", vừa nằm ở "Hàng Khuyến Mãi").
+
+### A. Bảng `Categories` (Danh mục)
+Hỗ trợ mô hình Nested Tree phân cấp Cha-Con.
+| Column Name | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | UUID | Primary Key | Định danh |
+| `Name`| Varchar(150)| Required | Tên danh mục (Ví dụ: Điện thoại, Laptop) |
+| `Slug`| Varchar(200)| Unique, Index | Chuỗi URL thân thiện (dien-thoai, laptop) |
+| `Description` | Text | Nullable | Mô tả SEO category |
+| `ParentId` | UUID | Nullable, F.Key | Trỏ về chính bảng `Categories(Id)` để chia cấp |
+| `IsActive` | Boolean | Default `true` | Đóng/mở hiển thị |
+| `SortOrder` | Int | Default `0` | Vị trí lúc hiển thị trên menu UI |
+
+### B. Bảng `Products` (Sản phẩm cốt lõi)
+| Column Name | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | UUID | Primary Key | Định danh |
+| `Name`| Varchar(250)| Required | Tên sản phẩm (VD: Móc điện thoại hoa cờ Tổ Quốc) |
+| `Slug`| Varchar(300)| Unique, Index | URL thân thiện để SEO |
+| `Description` | Text | Nullable | Mô tả chi tiết HTML/Markdown |
+| `BasePrice` | Decimal(18,2) | Required | Giá bán cơ bản |
+| `WholesalePricing`| JSONB | Nullable | Cấu hình Bán Buôn/Bán Sỉ (VD: Mua 10-25 -> 22k) |
+| `OriginLocation`| Varchar(150)| Nullable | Kho gửi / Nơi gửi hàng (VD: TP. Hồ Chí Minh) |
+| `SoldCount` | Int | Default `0` | Thống kê số lượng "Đã Bán" hiển thị lên UI |
+| `ThumbnailUrl`| Varchar | Nullable | Link ảnh đại diện (phục vụ danh sách) |
+| `MediaUrls` | JSONB | Nullable | Mảng chứa Gallery nhiều hình ảnh / Video slide |
+| `IsActive` | Boolean | Default `true` | Trạng thái hiển thị |
+| `CreatedAt` | Timestamp | | Track ngày tạo (sắp xếp Mới Nhất) |
+
+### C. Bảng `ProductCategories` (Bảng trung gian)
+Để giải quyết bài toán Many-to-Many.
+| Column Name | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `ProductId` | UUID | Primary, F.Key | Mapping với bảng Products |
+| `CategoryId`| UUID | Primary, F.Key | Mapping với bảng Categories |
+
+### D. Bảng `ProductVariants` (Biến thể phân tử - Tùy chọn Mẫu mã / Size)
+Dùng để chứa các SKU của sản phẩm (Ví dụ: Áo phông Size M - Màu Đỏ). Mỗi Variant có Số lượng và Giá riêng.
+| Column Name | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | UUID | Primary Key | Định danh phiên bản |
+| `ProductId` | UUID | Required, F.Key | Trỏ về Product gốc |
+| `SKU` | Varchar(100)| Unique, Index | Mã quản lý nội bộ (VD: TSHIRT-RED-M) |
+| `VariantName` | Varchar(150)| Required | Tên hiển thị (VD: "Đỏ - Size M") |
+| `PriceOverride`| Decimal(18,2)| Nullable | Nếu null, lấy BasePrice của Product. Nếu có, lấy giá này. |
+| `StockQuantity`| Int | Default `0` | Tồn kho thực tế của phiên bản này. |
+
+### E. Bảng `ProductReviews` (Đánh giá Sản phẩm)
+Lưu trữ đánh giá người dùng. Hỗ trợ 2 thể loại đánh giá theo yêu cầu: (1) Chỉ chữ, (2) Kèm Hình ảnh/Video.
+| Column Name | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | UUID | Primary Key | Định danh |
+| `ProductId` | UUID | Required, F.Key | Trỏ về Product |
+| `UserId` | UUID | Nullable, F.Key | Trỏ về User (Người đánh giá) |
+| `Rating` | Int | Required, 1-5 | Số sao đánh giá (1 đến 5 sao) |
+| `Content` | Text | Nullable | Nội dung bình luận (Text) |
+| `MediaUrls` | JSONB | Nullable | Chứa links Hình ảnh, Video thực tế khách hàng Review |
+| `IsAnonymous` | Boolean | Default `false` | Nếu `true`, hiển thị tên User theo dạng che giấu (VD: b***2) |
+| `CreatedAt` | Timestamp | | Track ngày tạo để Sort |
+
+---
+
+## 3. Bản vẽ các API (Endpoints) cần phát triển
+*(Tất cả đi qua `CodePulse.ApiGateway`)*
+
+### Nhóm API Danh Mục (Categories)
+- `GET /api/categories/tree` (Public): Trả về JSON cây danh mục (Mẹ -> Con) để vẽ UI Menu. Yêu cầu Caching cực mạnh.
+- `GET /api/categories/{slug}` (Public): Lấy thông tin 1 category.
+- `POST / PUT / DELETE /api/categories` (Admin): Các thao tác CMS của Admin. Chú ý tính an toàn rẽ nhánh khi Disable cha thì tắt luôn con.
+
+### Nhóm API Sản Phẩm (Products)
+- `GET /api/products` (Public): Lấy danh sách sản phẩm. **Bắt buộc dùng Stored Procedure để phân trang & tìm kiếm**:
+  - `?categoryId={id}` (Lọc SP thuộc danh mục)
+  - `?page=1&pageSize=20` (Phân trang OFFSET/FETCH)
+  - `?searchTerm={keyword}` (Tìm theo Tên/Mô tả)
+  - `?sortBy=price_asc|newest` (Sắp xếp)
+  *(Trả về kèm theo metadata: `TotalRecords`, `TotalPages` để UI làm nút chuyển trang)*
+- `GET /api/products/{slug}` (Public): Lấy chi tiết 1 mặt hàng (kèm thông tin Categories chứa nó).
+- `POST /api/products` (Admin): Thêm SP, nhận một Object chứa các thông tin cơ bản + mảng `CategoryIds[]`.
+- `PUT /api/products/{id}` (Admin): Sửa thông tin. Nếu có đổi `CategoryIds[]` thì phải xoá mapping cũ thay bằng mapping mới.
+- `DELETE /api/products/{id}` (Admin): Soft delete (chỉ đổi Cờ `IsActive = false`). 
+
+### Nhóm API Đánh Giá (Reviews)
+- `GET /api/products/{id}/reviews` (Public): Lấy danh sách Đánh Giá của 1 sản phẩm. Hỗ trợ Query Filtering giống hệt Shopee UI:
+  - `?rating=5` (Lọc ra chỉ 5 sao)
+  - `?hasMedia=true` (Lọc Đánh giá Đính kèm Hình Ảnh / Video)
+  - `?hasComment=true` (Lọc Đánh giá Có bình luận chữ)
+  - `?page=1&pageSize=10`
+- `POST /api/products/{id}/reviews` (Protected): Góp ý đánh giá mới. Bắt kèm Payload: `Rating`, `Content`, `MediaUrls[]`, và `IsAnonymous`. Nếu `IsAnonymous = true` thì Backend chịu trách nhiệm làm obfuscation che tên Client trước khi lưu.
+
+---
+
+## 4. Chiến lược Tối Ưu Tốc Độ / Bộ nhớ đệm (Caching)
+- **Categories Cache:** Xây In-Memory Cache lưu toàn bộ cây danh mục trên RAM (`IMemoryCache`). Bất kỳ khi Admin gọi Thêm/Sửa/Xoá, bắn event xoá Cache để tạo mới.
+- **Products Database Pagination:** Khi tải /api/products, KHÔNG sử dụng `Include()` toàn bộ các relation không cần thiết. Trả về đúng số Limit/Offset. Dùng Indexed Views hoặc gán Index cứng cho `CategoryId`, `Slug`, `Price` dưới PostgreSQL để tìm kiếm cho nhanh.
+
+---
+
+## 5. Quy tắc Nghiệp vụ & Xác thực (Business & Request Validations)
+Khi thao tác dữ liệu (Nhất là từ Portal Admin hoặc User Submit), BẮT BUỘC phải đi qua lớp Kiểm tra Đầu vào (FluentValidation) trước khi chạm tới Database:
+
+1. **Xác thực Đầu vào cơ bản (Field Validations):**
+   - **Product/Category:** `Name` không được rỗng (Length: 3 - 250). `BasePrice` và `PriceOverride` bắt buộc $\ge 0$. `StockQuantity` $\ge 0$. Mảng `MediaUrls` phải chứa các URL hợp lệ.
+   - **Reviews:** `Rating` chỉ được nằm trong khoảng `[1, 5]`. Nội dung `Content` nếu có không được chứa script độc hại (XSS Prevention). Mảng `MediaUrls` giới hạn tối đa 5 File/Review.
+2. **Xác thực tính Hợp lệ của Nghiệp vụ (Business Validation Gotchas):**
+   - **Chống Vòng lặp Vô hạn (Tree Loop):** Danh mục A là Cha của B, chặn không cho cập nhật B làm Cha của A!
+   - **Auto-Generate Slug:** Name gửi lên gõ là "Laptop Gaming", Server tự parse thành `laptop-gaming`. Nếu trùng thì tự gán `laptop-gaming-1`.
+   - **Mồ Côi Sản Phẩm:** Khi xoá một `Category` gốc có 100 sản phẩm, phải rào lỗi chặn xoá (Ví dụ: *"Không thể xoá danh mục đang có chứa sản phẩm"*).
+   - **Xác thực Đánh Giá (Review Verification):** Backend chỉ cho phép User post Review lên một Product ID nếu trong CSDL Order xác nhận User đó **Đã mua và Nhận hàng thành công**. (Chống spam review ảo).
+   - **Bảo toàn kho (Stock):** Khi mua hàng, Stock phải được cập nhật qua Stored Procedures (Locking) trên bảng `ProductVariants` chứ không gọi thẳng `stock = stock - 1`.
+   - **Cơ chế Override Giá:** Nếu UI mua một `Variant`, Server phải tính tiền dựa vào `Variant.PriceOverride` thay vì `BasePrice`.
+
+
+---
+
+## 6. Lớp truy xuất dữ liệu (Data Access Layer) & Phân Trang (Pagination)
+Tuyệt đối không dùng `_context.Products.Include().ToList()` cho API lấy danh sách, vì bảng Product sẽ rất lớn. Để tối ưu tốc độ và phân trang chính xác, chúng ta sẽ viết **Stored Procedures (SP)** trực tiếp trên PostgreSQL:
+
+### A. Quy chuẩn Stored Procedure Phân Trang Sản Phẩm (`sp_GetProducts`)
+Stored Procedure này sẽ nhận vào các tham số (Parameters) là: `PageNumber, PageSize, CategoryId, SearchTerm, SortBy`.
+- **Query Phân Trang (Pagination):** Sử dụng mệnh đề `OFFSET` và `FETCH NEXT` hoặc `LIMIT`. `OFFSET = (PageNumber - 1) * PageSize`.
+- **Tổng số dòng (Total Records):** Thay vì chạy thêm 1 câu `SELECT COUNT(*)` tốn kém, ta sử dụng cửa sổ (Window Function) của PostgreSQL: `COUNT(*) OVER() AS TotalRecords` lấy ngay trong cùng 1 câu lệnh.
+- **Tìm kiếm (Search):** Dùng tính năng truy vấn Full-Text Search hoặc `ILIKE` cho `SearchTerm`.
+- **Lọc theo Danh mục:** `JOIN` bảng `ProductCategories` theo `CategoryId` truyền vào.
+
+### B. Logic DTO (Data Transfer Object)
+Kết quả từ SP sẽ map thẳng về C# qua `IQueryable.FromSqlRaw(...)` và trả ra ngoài với cấu trúc:
+```json
+{
+  "Data": [ { "Id": "...", "Name": "Laptop", "Price": 200 } ],
+  "Pagination": {
+    "CurrentPage": 1,
+    "PageSize": 20,
+    "TotalRecords": 1500,
+    "TotalPages": 75
+  }
+}
+```
+
+---
+**Trạng thái Kế hoạch:** Đang chờ REVIEW. 🚀
