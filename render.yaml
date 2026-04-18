@@ -5,20 +5,21 @@ services:
   - type: web
     name: aerocommerce-api-gateway
     env: docker
-    dockerfilePath: ./src/AeroCommerce.ApiGateway/Dockerfile
+    dockerfilePath: src/AeroCommerce.ApiGateway/Dockerfile
+    dockerContext: .
     autoDeploy: true
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
-      # (Nên điền JWT_SECRET trong Render Dashboard)
 
   # 2. User Service
   - type: web
     name: aerocommerce-user-service
     env: docker
-    dockerfilePath: ./src/AeroCommerce.UserService/Dockerfile
+    dockerfilePath: src/AeroCommerce.UserService/Dockerfile
+    dockerContext: .
     autoDeploy: true
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
@@ -26,13 +27,14 @@ services:
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
       - key: DATABASE_URL
-        sync: false # Báo cho Render biết bạn sẽ tự nhập ở Dashboard
+        sync: false
 
   # 3. Post Service
   - type: web
     name: aerocommerce-post-service
     env: docker
-    dockerfilePath: ./src/AeroCommerce.PostService/Dockerfile
+    dockerfilePath: src/AeroCommerce.PostService/Dockerfile
+    dockerContext: .
     autoDeploy: true
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
@@ -46,7 +48,38 @@ services:
   - type: web
     name: aerocommerce-product-service
     env: docker
-    dockerfilePath: ./src/AeroCommerce.ProductService/Dockerfile
+    dockerfilePath: src/AeroCommerce.ProductService/Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:10000
+      - key: DATABASE_URL
+        sync: false
+
+  # 5. Cart Service
+  - type: web
+    name: aerocommerce-cart-service
+    env: docker
+    dockerfilePath: src/AeroCommerce.CartService/Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:10000
+      - key: DATABASE_URL
+        sync: false
+
+  # 6. Order Service
+  - type: web
+    name: aerocommerce-order-service
+    env: docker
+    dockerfilePath: src/AeroCommerce.OrderService/Dockerfile
+    dockerContext: .
     autoDeploy: true
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
