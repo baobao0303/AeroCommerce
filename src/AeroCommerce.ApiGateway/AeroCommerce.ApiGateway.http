@@ -1,0 +1,6 @@
+@AeroCommerce.ApiGateway_HostAddress = http://localhost:5127
+
+GET {{AeroCommerce.ApiGateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

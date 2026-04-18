@@ -1,0 +1,6 @@
+@AeroCommerce.CartService_HostAddress = http://localhost:5081
+
+GET {{AeroCommerce.CartService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

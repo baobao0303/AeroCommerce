@@ -1,6 +1,0 @@
-@CodePulse.ProductService_HostAddress = http://localhost:5081
-
-GET {{CodePulse.ProductService_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

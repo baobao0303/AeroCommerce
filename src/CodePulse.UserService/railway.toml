@@ -1,8 +1,0 @@
-[build]
-builder = "DOCKERFILE"
-dockerfilePath = "src/CodePulse.UserService/Dockerfile"
-
-[deploy]
-startCommand = "dotnet CodePulse.UserService.dll"
-healthcheckPath = "/health"
-restartPolicyType = "on_failure"

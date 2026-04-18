@@ -22,37 +22,37 @@ run_service() {
     done
 }
 
-# Khởi chạy CodePulse.ApiGateway (Cổng 5500 hoặc 5000)
-run_service "ApiGateway" "$CYAN" dotnet watch --project src/CodePulse.ApiGateway/CodePulse.ApiGateway.csproj &
+# Khởi chạy AeroCommerce.ApiGateway (Cổng 5500 hoặc 5000)
+run_service "ApiGateway" "$CYAN" dotnet watch --project src/AeroCommerce.ApiGateway/AeroCommerce.ApiGateway.csproj &
 PID_GATEWAY=$!
 
-# Khởi chạy CodePulse.UserService (Cổng 5001)
-run_service "UserService" "$BLUE" dotnet watch --project src/CodePulse.UserService/CodePulse.UserService.csproj &
+# Khởi chạy AeroCommerce.UserService (Cổng 5001)
+run_service "UserService" "$BLUE" dotnet watch --project src/AeroCommerce.UserService/AeroCommerce.UserService.csproj &
 PID_USER=$!
 
-# Khởi chạy CodePulse.PostService (Cổng 5002)
+# Khởi chạy AeroCommerce.PostService (Cổng 5002)
 # Chờ 2s để cho ApiGateway/User lên trước
 sleep 2 
-run_service "PostService" "$YELLOW" dotnet watch --project src/CodePulse.PostService/CodePulse.PostService.csproj &
+run_service "PostService" "$YELLOW" dotnet watch --project src/AeroCommerce.PostService/AeroCommerce.PostService.csproj &
 PID_POST=$!
 
-# Khởi chạy CodePulse.ProductService (Cổng 5003)
-run_service "ProductService" "$GREEN" dotnet watch --project src/CodePulse.ProductService/CodePulse.ProductService.csproj &
+# Khởi chạy AeroCommerce.ProductService (Cổng 5003)
+run_service "ProductService" "$GREEN" dotnet watch --project src/AeroCommerce.ProductService/AeroCommerce.ProductService.csproj &
 PID_PRODUCT=$!
 
-# Khởi chạy CodePulse.CartService (Cổng 5004)
-run_service "CartService" "$CYAN" dotnet watch --project src/CodePulse.CartService/CodePulse.CartService.csproj &
+# Khởi chạy AeroCommerce.CartService (Cổng 5004)
+run_service "CartService" "$CYAN" dotnet watch --project src/AeroCommerce.CartService/AeroCommerce.CartService.csproj &
 PID_CART=$!
 
-# Khởi chạy CodePulse.OrderService (Cổng 5005)
-run_service "OrderService" "$BLUE" dotnet watch --project src/CodePulse.OrderService/CodePulse.OrderService.csproj &
+# Khởi chạy AeroCommerce.OrderService (Cổng 5005)
+run_service "OrderService" "$BLUE" dotnet watch --project src/AeroCommerce.OrderService/AeroCommerce.OrderService.csproj &
 PID_ORDER=$!
 
 # Dọn dẹp tiến trình rác khi ấn Ctrl+C
 cleanup() {
     echo -e "\n${YELLOW}Đang tắt các Microservices...${NC}"
     kill $PID_GATEWAY $PID_USER $PID_POST $PID_PRODUCT $PID_CART $PID_ORDER 2>/dev/null
-    pkill -f 'CodePulse' 2>/dev/null
+    pkill -f 'AeroCommerce' 2>/dev/null
     pkill -f 'dotnet' 2>/dev/null
     wait $PID_GATEWAY $PID_USER $PID_POST $PID_PRODUCT $PID_CART $PID_ORDER 2>/dev/null
     echo -e "${GREEN}Tất cả service đã được tắt an toàn!${NC}"

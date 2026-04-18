@@ -1,6 +1,0 @@
-@CodePulse.ApiGateway_HostAddress = http://localhost:5127
-
-GET {{CodePulse.ApiGateway_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

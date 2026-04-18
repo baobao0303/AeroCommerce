@@ -1,7 +1,0 @@
-[build]
-builder = "DOCKERFILE"
-dockerfilePath = "src/CodePulse.ApiGateway/Dockerfile"
-
-[deploy]
-startCommand = "dotnet CodePulse.ApiGateway.dll"
-restartPolicyType = "on_failure"

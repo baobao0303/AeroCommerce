@@ -1,12 +1,12 @@
 ---
 name: Authentication Architecture MDC
-description: System design and strict technical guidelines for implementing the global Authentication Flow in CodePulse Microservices and Frontend (SSR + MFE).
+description: System design and strict technical guidelines for implementing the global Authentication Flow in AeroCommerce Microservices and Frontend (SSR + MFE).
 category: architecture, security, auth
 ---
 
-# CodePulse Authentication System (MDC)
+# AeroCommerce Authentication System (MDC)
 
-Tài liệu này (MDC) quy định chuẩn Mulesoft/Micro-frontend & Microservices Architecture cho module xác thực của dự án CodePulse. Toàn bộ team tuân thủ nghiêm ngặt nguyên tắc: **Security first, Separation of Concerns, SSR & MFE compatibility.**
+Tài liệu này (MDC) quy định chuẩn Mulesoft/Micro-frontend & Microservices Architecture cho module xác thực của dự án AeroCommerce. Toàn bộ team tuân thủ nghiêm ngặt nguyên tắc: **Security first, Separation of Concerns, SSR & MFE compatibility.**
 
 ## 1. 🧩 Module Breakdown
 

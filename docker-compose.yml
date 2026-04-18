@@ -9,7 +9,7 @@ services:
   # ── Local PostgreSQL (chỉ dùng khi KHÔNG dùng Supabase) ──
   postgres:
     image: postgres:16-alpine
-    container_name: codepulse-postgres
+    container_name: aerocommerce-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -27,19 +27,19 @@ services:
 
   # ── UserService ─────────────────────────────────────────
   user-service:
-    container_name: codepulse-user-service
+    container_name: aerocommerce-user-service
     build:
       context: .
-      dockerfile: src/CodePulse.UserService/Dockerfile
+      dockerfile: src/AeroCommerce.UserService/Dockerfile
     ports:
       - "5001:5001"
     environment:
       # LOCAL: kết nối local postgres
-      DATABASE_URL: ${USER_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_users;Username=postgres;Password=postgres}
+      DATABASE_URL: ${USER_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=aerocommerce_users;Username=postgres;Password=postgres}
       # SUPABASE: set USER_SERVICE_DATABASE_URL trong .env
-      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
-      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      JWT_SECRET: ${JWT_SECRET:-AeroCommerce-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-AeroCommerce.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-AeroCommerce.Client}
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
     depends_on:
       - postgres
@@ -47,17 +47,17 @@ services:
 
   # ── PostService ─────────────────────────────────────────
   post-service:
-    container_name: codepulse-post-service
+    container_name: aerocommerce-post-service
     build:
       context: .
-      dockerfile: src/CodePulse.PostService/Dockerfile
+      dockerfile: src/AeroCommerce.PostService/Dockerfile
     ports:
       - "5002:5002"
     environment:
-      DATABASE_URL: ${POST_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_posts;Username=postgres;Password=postgres}
-      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
-      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      DATABASE_URL: ${POST_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=aerocommerce_posts;Username=postgres;Password=postgres}
+      JWT_SECRET: ${JWT_SECRET:-AeroCommerce-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-AeroCommerce.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-AeroCommerce.Client}
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
     depends_on:
       - postgres
@@ -65,17 +65,17 @@ services:
 
   # ── ProductService (Catalog & Product) ───────────────
   product-service:
-    container_name: codepulse-product-service
+    container_name: aerocommerce-product-service
     build:
       context: .
-      dockerfile: src/CodePulse.ProductService/Dockerfile
+      dockerfile: src/AeroCommerce.ProductService/Dockerfile
     ports:
       - "5003:5003"
     environment:
-      DATABASE_URL: ${PRODUCT_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_products;Username=postgres;Password=postgres}
-      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
-      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      DATABASE_URL: ${PRODUCT_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=aerocommerce_products;Username=postgres;Password=postgres}
+      JWT_SECRET: ${JWT_SECRET:-AeroCommerce-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-AeroCommerce.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-AeroCommerce.Client}
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
     depends_on:
       - postgres
@@ -83,17 +83,17 @@ services:
 
   # ── CartService ──────────────────────────────────────────
   cart-service:
-    container_name: codepulse-cart-service
+    container_name: aerocommerce-cart-service
     build:
       context: .
-      dockerfile: src/CodePulse.CartService/Dockerfile
+      dockerfile: src/AeroCommerce.CartService/Dockerfile
     ports:
       - "5004:5004"
     environment:
-      DATABASE_URL: ${CART_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_carts;Username=postgres;Password=postgres}
-      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
-      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      DATABASE_URL: ${CART_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=aerocommerce_carts;Username=postgres;Password=postgres}
+      JWT_SECRET: ${JWT_SECRET:-AeroCommerce-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-AeroCommerce.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-AeroCommerce.Client}
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
     depends_on:
       - postgres
@@ -101,17 +101,17 @@ services:
 
   # ── OrderService ─────────────────────────────────────────
   order-service:
-    container_name: codepulse-order-service
+    container_name: aerocommerce-order-service
     build:
       context: .
-      dockerfile: src/CodePulse.OrderService/Dockerfile
+      dockerfile: src/AeroCommerce.OrderService/Dockerfile
     ports:
       - "5005:5005"
     environment:
-      DATABASE_URL: ${ORDER_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=codepulse_orders;Username=postgres;Password=postgres}
-      JWT_SECRET: ${JWT_SECRET:-CodePulse-SuperSecret-JWT-Key-2025-ChangeInProduction!}
-      JWT_ISSUER: ${JWT_ISSUER:-CodePulse.UserService}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-CodePulse.Client}
+      DATABASE_URL: ${ORDER_SERVICE_DATABASE_URL:-Host=postgres;Port=5432;Database=aerocommerce_orders;Username=postgres;Password=postgres}
+      JWT_SECRET: ${JWT_SECRET:-AeroCommerce-SuperSecret-JWT-Key-2025-ChangeInProduction!}
+      JWT_ISSUER: ${JWT_ISSUER:-AeroCommerce.UserService}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-AeroCommerce.Client}
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
     depends_on:
       - postgres
@@ -119,10 +119,10 @@ services:
 
   # ── API Gateway ─────────────────────────────────────────
   api-gateway:
-    container_name: codepulse-api-gateway
+    container_name: aerocommerce-api-gateway
     build:
       context: .
-      dockerfile: src/CodePulse.ApiGateway/Dockerfile
+      dockerfile: src/AeroCommerce.ApiGateway/Dockerfile
     ports:
       - "5000:5000"
     environment:

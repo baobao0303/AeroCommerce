@@ -1,0 +1,7 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "src/AeroCommerce.ApiGateway/Dockerfile"
+
+[deploy]
+startCommand = "dotnet AeroCommerce.ApiGateway.dll"
+restartPolicyType = "on_failure"

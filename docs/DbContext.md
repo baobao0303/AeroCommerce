@@ -1,4 +1,4 @@
-# DbContext Class trong CodePulse
+# DbContext Class trong AeroCommerce
 
 ## Tổng quan
 
@@ -32,14 +32,14 @@ HTTP Request
 
 ---
 
-## DbContext trong CodePulse
+## DbContext trong AeroCommerce
 
 Dự án có **2 DbContext** riêng biệt, mỗi service độc lập một database:
 
 ### 1. `UserDbContext` — UserService (port 5001)
 
 ```csharp
-// src/CodePulse.UserService/Data/UserDbContext.cs
+// src/AeroCommerce.UserService/Data/UserDbContext.cs
 
 public class UserDbContext : DbContext
 {
@@ -60,7 +60,7 @@ public class UserDbContext : DbContext
 }
 ```
 
-**Database:** `codepulse_users`
+**Database:** `aerocommerce_users`
 **Bảng quản lý:** `Users`
 
 ---
@@ -68,7 +68,7 @@ public class UserDbContext : DbContext
 ### 2. `PostDbContext` — PostService (port 5002)
 
 ```csharp
-// src/CodePulse.PostService/Data/PostDbContext.cs
+// src/AeroCommerce.PostService/Data/PostDbContext.cs
 
 public class PostDbContext : DbContext
 {
@@ -96,7 +96,7 @@ public class PostDbContext : DbContext
 }
 ```
 
-**Database:** `codepulse_posts`
+**Database:** `aerocommerce_posts`
 **Bảng quản lý:** `Posts`, `Tags`
 
 ---
@@ -168,7 +168,7 @@ DbContext theo dõi trạng thái:
 
 ### Local Development
 ```
-Host=localhost;Port=5432;Database=codepulse_users;Username=postgres;Password=postgres
+Host=localhost;Port=5432;Database=aerocommerce_users;Username=postgres;Password=postgres
 ```
 
 ### Supabase Production
@@ -218,7 +218,7 @@ curl http://localhost:5001/health
             ▼                               ▼
    ┌─────────────────────────────────────────────────────┐
    │                  SUPABASE                           │
-   │   codepulse_users (DB)  │  codepulse_posts (DB)    │
+   │   aerocommerce_users (DB)  │  aerocommerce_posts (DB)    │
    │   └── Users table       │  └── Posts table         │
    │                         │      └── Tags table      │
    └─────────────────────────────────────────────────────┘

@@ -1,6 +1,6 @@
 ---
-description: CodePulse Category & Product System Architecture
-globs: ["src/CodePulse.ProductService/**/*.cs", "src/CodePulse.CatalogService/**/*.cs", "src/CodePulse.Shared/**/*.cs"]
+description: AeroCommerce Category & Product System Architecture
+globs: ["src/AeroCommerce.ProductService/**/*.cs", "src/AeroCommerce.CatalogService/**/*.cs", "src/AeroCommerce.Shared/**/*.cs"]
 ---
 
 # Kiến trúc Hệ thống Sản phẩm & Danh mục Sản phẩm (Product & Category Architecture)
@@ -8,7 +8,7 @@ globs: ["src/CodePulse.ProductService/**/*.cs", "src/CodePulse.CatalogService/**
 Tài liệu này vạch ra kế hoạch triển khai toàn diện tính năng **Sản phẩm (Product)** kết hợp với hệ thống **Danh mục (Category)** dành cho thiết kế Microservices.
 
 ## 1. Vị trí trong Hệ sinh thái Microservices
-- **Vị trí đề xuất:** Cả 2 thực thể này nên nằm chung trong một microservice, gọi là `CodePulse.ProductService` (hoặc đổi tên PostService thành ProductService). Việc giữ chúng trong cùng một DB/Service giúp dễ dàng triển khai Entity Framework truy vấn `Include(p => p.Categories)` mà không lo chi phí Join qua mạng.
+- **Vị trí đề xuất:** Cả 2 thực thể này nên nằm chung trong một microservice, gọi là `AeroCommerce.ProductService` (hoặc đổi tên PostService thành ProductService). Việc giữ chúng trong cùng một DB/Service giúp dễ dàng triển khai Entity Framework truy vấn `Include(p => p.Categories)` mà không lo chi phí Join qua mạng.
 
 ---
 
@@ -78,7 +78,7 @@ Lưu trữ đánh giá người dùng. Hỗ trợ 2 thể loại đánh giá the
 ---
 
 ## 3. Bản vẽ các API (Endpoints) cần phát triển
-*(Tất cả đi qua `CodePulse.ApiGateway`)*
+*(Tất cả đi qua `AeroCommerce.ApiGateway`)*
 
 ### Nhóm API Danh Mục (Categories)
 - `GET /api/categories/tree` (Public): Trả về JSON cây danh mục (Mẹ -> Con) để vẽ UI Menu. Yêu cầu Caching cực mạnh.

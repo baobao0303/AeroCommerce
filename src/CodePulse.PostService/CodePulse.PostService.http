@@ -1,6 +1,0 @@
-@CodePulse.PostService_HostAddress = http://localhost:5293
-
-GET {{CodePulse.PostService_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

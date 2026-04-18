@@ -1,0 +1,8 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "src/AeroCommerce.PostService/Dockerfile"
+
+[deploy]
+startCommand = "dotnet AeroCommerce.PostService.dll"
+healthcheckPath = "/health"
+restartPolicyType = "on_failure"
