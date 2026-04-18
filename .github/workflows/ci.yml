@@ -1,0 +1,47 @@
+name: AeroCommerce CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code from Github
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 8.0 Environment
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+        
+    - name: Restore Dependencies (API Gateway)
+      run: dotnet restore src/AeroCommerce.ApiGateway/AeroCommerce.ApiGateway.csproj
+      
+    - name: Build & Compile API Gateway
+      run: dotnet build src/AeroCommerce.ApiGateway/AeroCommerce.ApiGateway.csproj -c Release --no-restore
+
+    - name: Build & Compile User Service
+      run: dotnet build src/AeroCommerce.UserService/AeroCommerce.UserService.csproj -c Release --no-restore
+      
+    - name: Build & Compile Product Service
+      run: dotnet build src/AeroCommerce.ProductService/AeroCommerce.ProductService.csproj -c Release --no-restore
+      
+    - name: Build & Compile Cart Service
+      run: dotnet build src/AeroCommerce.CartService/AeroCommerce.CartService.csproj -c Release --no-restore
+      
+    - name: Build & Compile Order Service
+      run: dotnet build src/AeroCommerce.OrderService/AeroCommerce.OrderService.csproj -c Release --no-restore
+
+    - name: Simulate Docker Compose Build Phase
+      run: |
+        echo "Kiểm tra cấu hình Docker..."
+        docker-compose config
+        echo "Jenkins sẽ tiến hành đóng gói Docker nếu trên server thật!"
+      
+    - name: Notification
+      run: echo "✅ Toàn bộ hệ thống Microservices đã được Build thành công trên Đám mây của GitHub!"
