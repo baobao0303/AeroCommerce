@@ -12,10 +12,10 @@ obj/
 # Docker
 docker-compose.override.yml
 
-# Rider / VS Code
+# Rider / VS Code / Cursor
 .idea/
 .vscode/
+.cursor/
 
 # macOS
 .DS_Store
-
